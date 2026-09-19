@@ -4,7 +4,7 @@
 
 从架构原理出发，逐步掌握 **Vue 3 + FastAPI** 全栈开发。
 
-`9 篇主线课程` · `1 篇概念专题` · `AI 编程` · `面试导向`
+`10 篇主线课程` · `1 篇概念专题` · `AI 编程` · `面试导向`
 
 </div>
 
@@ -23,8 +23,9 @@
 | 07 | [Vue 3 核心基础](./学习文档/07-Vue3核心基础与组件化.md) | 响应式、组件通信、生命周期、Composable | ✅ |
 | 08 | [Vue Router 与 Pinia](./学习文档/08-Vue-Router与Pinia.md) | 路由、导航守卫、Store、状态边界 | ✅ |
 | 09 | [Axios 与前后端接口层](./学习文档/09-Axios与前后端接口层.md) | 请求封装、错误模型、认证、上传下载 | ✅ |
+| 10 | [Python 现代语法与后端基础](./学习文档/10-Python现代语法与后端开发基础.md) | 类型、异常、异步、项目结构、测试 | ✅ |
 
-接下来：`Python` → `FastAPI` → `SQL` → `PostgreSQL` → `Docker`
+接下来：`FastAPI + Pydantic` → `SQL` → `PostgreSQL` → `Docker`
 
 ## 概念专题
 
@@ -64,6 +65,7 @@ Tooling    Git · pnpm · pytest · Docker
    ├─ 07-Vue3核心基础与组件化.md
    ├─ 08-Vue-Router与Pinia.md
    ├─ 09-Axios与前后端接口层.md
+   ├─ 10-Python现代语法与后端开发基础.md
    ├─ 专题-前后端数据流与易混概念.md
    └─ assets/
 ```

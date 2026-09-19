@@ -5,7 +5,7 @@
 > 前置知识：HTTP、JSON、TypeScript、Vue 3、Vue Router、Pinia  
 > 学习目标：熟悉 Vue 调用 FastAPI 的完整接口层，能够指挥 AI 编写可靠请求代码，并能在面试中说明常用机制、安全边界和异常处理。
 
-[← Vue Router 与 Pinia](./08-Vue-Router与Pinia.md) · [学习首页](../README.md)
+[← Vue Router 与 Pinia](./08-Vue-Router与Pinia.md) · [学习首页](../README.md) · [Python 后端基础 →](./10-Python现代语法与后端开发基础.md)
 
 ## 阅读方式
 
@@ -1247,3 +1247,5 @@ FastAPI
 - Python 项目结构、格式化、类型检查和测试；
 - 可直接交给 AI 的 Python 开发指令；
 - 面试中的 Python 核心表达。
+
+[进入下一课：Python 现代语法与后端开发基础 →](./10-Python现代语法与后端开发基础.md)
