@@ -1,0 +1,19 @@
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+tmp/
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+coverage/
+
+# Local environment variables
+.env
+.env.*
+!.env.example
