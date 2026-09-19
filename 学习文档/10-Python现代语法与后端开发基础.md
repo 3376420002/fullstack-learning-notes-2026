@@ -5,7 +5,7 @@
 > 前置知识：编程基础、HTTP、JSON、前端接口调用  
 > 学习目标：熟悉 FastAPI 项目中高频使用的 Python 能力，能够读懂和指挥 AI 编写后端代码，并能在面试中准确说明核心机制。
 
-[← Axios 与接口层](./09-Axios与前后端接口层.md) · [学习首页](../README.md)
+[← Axios 与接口层](./09-Axios与前后端接口层.md) · [学习首页](../README.md) · [FastAPI、Pydantic 与依赖注入 →](./11-FastAPI、Pydantic与依赖注入.md)
 
 ## 阅读方式
 
@@ -1376,3 +1376,5 @@ Python Backend
 - FastAPI 项目分层与测试；
 - 可直接交给 AI 的 FastAPI 开发指令；
 - 面试中的 FastAPI 与 Pydantic 表达。
+
+[进入下一课：FastAPI、Pydantic 与依赖注入 →](./11-FastAPI、Pydantic与依赖注入.md)
