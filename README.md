@@ -4,7 +4,7 @@
 
 从架构原理出发，逐步掌握 **Vue 3 + FastAPI** 全栈开发。
 
-`6 篇主线课程` · `1 篇概念专题` · `示例驱动` · `持续更新`
+`7 篇主线课程` · `1 篇概念专题` · `AI 编程` · `面试导向`
 
 </div>
 
@@ -20,8 +20,9 @@
 | 04 | [HTML 与 CSS](./学习文档/04-HTML与CSS页面基础.md) | 语义化、表单、布局、响应式 | ✅ |
 | 05 | [TypeScript](./学习文档/05-TypeScript基础与类型系统.md) | 类型系统、泛型、DOM、API 契约 | ✅ |
 | 06 | [前端工程化](./学习文档/06-Node.js、pnpm、Vite与create-vue工程化.md) | Node.js、pnpm、Vite、create-vue | ✅ |
+| 07 | [Vue 3 核心基础](./学习文档/07-Vue3核心基础与组件化.md) | 响应式、组件通信、生命周期、Composable | ✅ |
 
-接下来：`Vue 3` → `Vue Router` → `Pinia` → `Axios` → `Python` → `FastAPI` → `SQL` → `PostgreSQL` → `Docker`
+接下来：`Vue Router + Pinia` → `Axios` → `Python` → `FastAPI` → `SQL` → `PostgreSQL` → `Docker`
 
 ## 概念专题
 
@@ -29,13 +30,13 @@
 
 ## 如何学习
 
-每篇课程都按统一结构编写：
+课程从第 07 课起采用面向使用和求职的结构：
 
 ```text
-原理 → 示例 → 常见错误 → 实操 → 自测 → 验收
+技术认知 → 核心写法 → 项目模式 → 常见错误 → AI 编程指令 → 面试表达
 ```
 
-建议从 [MVC 分层架构](./学习文档/01-MVC分层架构.md) 开始，完成文末练习后再进入下一课。
+建议从 [MVC 分层架构](./学习文档/01-MVC分层架构.md) 开始，重点建立技术之间的联系、读懂项目代码，并学会准确地指挥 AI 完成开发任务。
 
 ## 技术栈
 
@@ -58,6 +59,7 @@ Tooling    Git · pnpm · pytest · Docker
    ├─ 04-HTML与CSS页面基础.md
    ├─ 05-TypeScript基础与类型系统.md
    ├─ 06-Node.js、pnpm、Vite与create-vue工程化.md
+   ├─ 07-Vue3核心基础与组件化.md
    ├─ 专题-前后端数据流与易混概念.md
    └─ assets/
 ```

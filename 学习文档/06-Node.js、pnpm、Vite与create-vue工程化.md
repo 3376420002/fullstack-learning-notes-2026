@@ -5,7 +5,7 @@
 > 前置知识：HTML、CSS、TypeScript  
 > 本课目标：能够创建、运行、理解和排查一个标准的 Vue 3 + TypeScript 前端工程。
 
-[← TypeScript](./05-TypeScript基础与类型系统.md) · [学习首页](../README.md)
+[← TypeScript](./05-TypeScript基础与类型系统.md) · [学习首页](../README.md) · [Vue 3 核心基础 →](./07-Vue3核心基础与组件化.md)
 
 ## 1. 四项技术分别解决什么问题
 
@@ -1184,3 +1184,5 @@ VITE_APP_TITLE=TodoLab
 - 组件拆分与组合式函数。
 
 完成后，我们会把 Todo 页面正式改造成 Vue 组件应用。
+
+[进入下一课：Vue 3 核心基础与组件化 →](./07-Vue3核心基础与组件化.md)
