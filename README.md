@@ -4,7 +4,7 @@
 
 从架构原理出发，逐步掌握 **Vue 3 + FastAPI** 全栈开发。
 
-`6 篇课程` · `中文笔记` · `示例驱动` · `持续更新`
+`6 篇主线课程` · `1 篇概念专题` · `示例驱动` · `持续更新`
 
 </div>
 
@@ -22,6 +22,10 @@
 | 06 | [前端工程化](./学习文档/06-Node.js、pnpm、Vite与create-vue工程化.md) | Node.js、pnpm、Vite、create-vue | ✅ |
 
 接下来：`Vue 3` → `Vue Router` → `Pinia` → `Axios` → `Python` → `FastAPI` → `SQL` → `PostgreSQL` → `Docker`
+
+## 概念专题
+
+- [前后端数据流与易混概念](./学习文档/专题-前后端数据流与易混概念.md)：串联 Vue、TypeScript、HTTP、Schema、SQLAlchemy 与 MVC，并集中澄清常见误区。
 
 ## 如何学习
 
@@ -54,6 +58,7 @@ Tooling    Git · pnpm · pytest · Docker
    ├─ 04-HTML与CSS页面基础.md
    ├─ 05-TypeScript基础与类型系统.md
    ├─ 06-Node.js、pnpm、Vite与create-vue工程化.md
+   ├─ 专题-前后端数据流与易混概念.md
    └─ assets/
 ```
 
