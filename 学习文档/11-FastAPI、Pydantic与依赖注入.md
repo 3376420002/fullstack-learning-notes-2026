@@ -5,7 +5,7 @@
 > 前置知识：Python、HTTP、JSON、Axios  
 > 学习目标：熟悉 FastAPI 的完整请求链，能够设计类型清晰的 API、指挥 AI 编写后端功能，并能在面试中说明框架原理与工程边界。
 
-[← Python 后端基础](./10-Python现代语法与后端开发基础.md) · [学习首页](../README.md)
+[← Python 后端基础](./10-Python现代语法与后端开发基础.md) · [学习首页](../README.md) · [SQL 与关系型数据库 →](./12-SQL与关系型数据库基础.md)
 
 ## 阅读方式
 
@@ -1489,3 +1489,5 @@ FastAPI Application
 - 数据建模、范式与 Todo 数据库设计；
 - 可直接交给 AI 的 SQL 开发指令；
 - 面试中的 SQL 核心表达。
+
+[进入下一课：SQL 与关系型数据库基础 →](./12-SQL与关系型数据库基础.md)
