@@ -52,6 +52,30 @@ const router = createRouter({
 
 路由页面使用动态 import 可以按页面拆分代码。
 
+有共同布局的页面可使用嵌套路由：
+
+```ts
+{
+  path: '/settings',
+  component: () => import('@/layouts/SettingsLayout.vue'),
+  children: [
+    { path: '', redirect: { name: 'profile-settings' } },
+    {
+      path: 'profile',
+      name: 'profile-settings',
+      component: () => import('@/views/ProfileSettings.vue'),
+    },
+    {
+      path: 'security',
+      name: 'security-settings',
+      component: () => import('@/views/SecuritySettings.vue'),
+    },
+  ],
+}
+```
+
+父布局中必须再放一个 `RouterView`，子页面才有渲染出口。子路由 path 通常不以 `/` 开头，否则会变成根路径。
+
 ## 3. RouterLink 与 RouterView
 
 ```vue
@@ -85,6 +109,16 @@ await router.push({
 ```
 
 Params 和 Query 来自 URL，使用前要转换和验证，不能直接相信 TypeScript。
+
+从 `/todos/1` 导航到 `/todos/2` 时，Vue Router 可能复用同一个页面组件，`onMounted` 不会再次执行。应监听参数或让数据加载逻辑依赖参数：
+
+```ts
+watch(
+  () => route.params.id,
+  (id) => loadTodo(Number(id)),
+  { immediate: true },
+)
+```
 
 ## 5. History 模式
 
@@ -205,7 +239,30 @@ const isAuthenticated = computed(() => user.value !== null)
 
 退出登录时要清理与用户有关的 Store，避免下一个用户看到旧数据。
 
-## 11. 常见错误
+Store 可以提供明确的重置动作：
+
+```ts
+function reset() {
+  todos.value = []
+  loading.value = false
+  errorMessage.value = ''
+}
+```
+
+Options Store 可使用内置 `$reset()`；Setup Store 通常自己实现。退出登录、切换租户或测试之间都可能需要重置。
+
+## 11. 状态持久化
+
+Pinia 状态默认在刷新后消失。需要持久化时可以显式读写 localStorage 或使用经过评估的插件，但只保存确有必要的少量字段。
+
+```text
+适合：主题偏好、非敏感界面设置
+谨慎：访问令牌、用户资料、可能过期的服务端数据
+```
+
+localStorage 可被页面 JavaScript 读取，不能把它当安全存储。持久化数据还要考虑版本升级、过期、解析失败和退出清理。
+
+## 12. 常见错误
 
 - RouterView 放错布局层级或缺失；
 - History 模式部署后没有 SPA 回退；
@@ -217,7 +274,7 @@ const isAuthenticated = computed(() => user.value !== null)
 - 登录态未初始化就执行守卫；
 - 用户退出后未清理业务 Store。
 
-## 12. 给 AI 的开发指令
+## 13. 给 AI 的开发指令
 
 ```text
 请为现有 Vue 3 项目实现 Todo 路由和 Pinia Store。
@@ -228,7 +285,7 @@ State 和 Getter 用 storeToRefs，Action 直接调用。
 说明 History 模式的生产回退，完成后运行 type-check、test 和 build。
 ```
 
-## 13. 面试表达
+## 14. 面试表达
 
 > Vue Router 监听 URL，根据路由表匹配组件并渲染到 RouterView，普通 SPA 导航不重新加载整页。
 

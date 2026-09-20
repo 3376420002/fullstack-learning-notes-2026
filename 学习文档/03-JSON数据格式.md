@@ -261,7 +261,83 @@ GET /todos/42    TodoDetail
 
 不要把堆栈、SQL、文件路径或内部异常直接返回给客户端。
 
-## 14. 常见错误
+## 14. Object 与 Array 的选择
+
+对象适合有名称的字段：
+
+```json
+{"id":1,"title":"学习 JSON"}
+```
+
+数组适合同一种元素的有序集合：
+
+```json
+[
+  {"id":1,"title":"学习 JSON"},
+  {"id":2,"title":"学习 HTTP"}
+]
+```
+
+分页列表通常不只返回数组，还包含元数据：
+
+```json
+{
+  "items": [{"id":1,"title":"学习 JSON"}],
+  "page": 1,
+  "page_size": 20,
+  "total": 52
+}
+```
+
+## 15. 转义和编码
+
+JSON 字符串需要转义特殊字符：
+
+```json
+{
+  "message": "第一行\n第二行",
+  "quote": "他说：\"你好\""
+}
+```
+
+HTTP 中通常使用 UTF-8：
+
+```http
+Content-Type: application/json; charset=utf-8
+```
+
+不要手工拼接 JSON 字符串，应使用 JSON 库或 HTTP 客户端序列化，避免引号和转义错误。
+
+## 16. JavaScript 序列化细节
+
+```ts
+JSON.stringify({ value: undefined }) // "{}"
+JSON.stringify([undefined])          // "[null]"
+JSON.stringify({ value: NaN })       // "{\"value\":null}"
+```
+
+BigInt 不能直接被标准 `JSON.stringify` 序列化。Date 通常通过 `toJSON` 变成 ISO 字符串。
+
+这些行为说明：发送前必须明确数据契约，不能假设所有 JavaScript 值都能原样进入 JSON。
+
+## 17. 契约兼容性
+
+常见兼容变化：
+
+- 增加客户端可以忽略的可选响应字段；
+- 新增具有默认行为的可选请求字段；
+- 保留旧字段一段迁移期。
+
+常见破坏性变化：
+
+- 删除或重命名字段；
+- 改变字段类型；
+- 把可选字段改成必填；
+- 改变 null 和缺失的含义。
+
+接口变化应同步 OpenAPI、前端类型、测试和版本策略。
+
+## 18. 常见错误
 
 - 使用单引号、尾随逗号或注释，导致 JSON 无法解析；
 - 把 `undefined` 当成 JSON 类型；
@@ -272,7 +348,7 @@ GET /todos/42    TodoDetail
 - 前后端字段命名不统一；
 - 把敏感数据库字段直接序列化。
 
-## 15. 给 AI 的开发指令
+## 19. 给 AI 的开发指令
 
 ```text
 请根据现有 OpenAPI 设计 Todo 的 TypeScript DTO 和 Pydantic Schema。
@@ -290,7 +366,7 @@ GET /todos/42    TodoDetail
 优先报告运行时类型失真与向后兼容风险，不要只调整格式。
 ```
 
-## 16. 面试表达
+## 20. 面试表达
 
 > JSON 是文本数据交换格式，只支持对象、数组、字符串、数字、布尔和 null，不直接支持 Date、BigInt、Decimal 或 undefined。
 

@@ -66,6 +66,28 @@ async def get_todo(
 
 FastAPI 根据函数签名判断参数来源、转换类型并执行约束。
 
+请求数据来源可明确标注：
+
+```python
+@router.post("/import")
+async def import_todos(
+    metadata: Annotated[str, Form()],
+    file: Annotated[UploadFile, File()],
+) -> dict[str, str]:
+    return {"filename": file.filename or ""}
+```
+
+```text
+Path     URL 路径中的资源标识
+Query    筛选、分页、排序
+Header   认证、追踪、内容协商
+Body     通常是 JSON 对象
+Form     表单文本字段
+File     multipart 文件
+```
+
+JSON Body 与 multipart Form/File 的编码不同，同一个请求不能同时把整体当作普通 JSON Body 和文件上传；复杂 metadata 可作为 JSON 字符串字段后再解析。
+
 ## 4. Pydantic Schema
 
 ```python
@@ -113,6 +135,22 @@ def normalize_title(cls, value: str) -> str:
 ```
 
 验证器适合格式和字段关系，不适合数据库唯一性、当前用户权限和复杂业务流程。
+
+`Field` 描述单字段约束，`field_validator` 处理一个或多个字段的规范化，`model_validator` 处理跨字段关系：
+
+```python
+class DateRange(BaseModel):
+    start_at: datetime
+    end_at: datetime
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "DateRange":
+        if self.end_at <= self.start_at:
+            raise ValueError("end_at must be after start_at")
+        return self
+```
+
+验证器应该确定、快速且无外部副作用。需要访问数据库的规则放到 Service，并在数据库中保留最终约束。
 
 ## 6. CRUD 路由
 
@@ -249,6 +287,19 @@ app.add_middleware(
 
 Lifespan 管理应用级连接池和客户端，yield 依赖管理单次请求资源。
 
+中间件包围每一个匹配的请求，可用于请求 ID、耗时、统一安全响应头等横切逻辑：
+
+```python
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+```
+
+中间件不要读取并消耗大文件 Body，也不要塞入具体业务规则。执行顺序和异常处理会影响日志与响应，增加多个中间件后应通过测试确认行为。
+
 ## 14. 文件与后台任务
 
 ```python
@@ -281,6 +332,17 @@ def test_health_check() -> None:
 ```
 
 `app.dependency_overrides` 可以在测试中替换数据库、认证和 Service。集成测试仍应覆盖真实测试数据库。
+
+OpenAPI 是接口的机器可读说明，可用于文档、客户端类型生成和契约检查，但它不会替代测试。测试可分为：
+
+```text
+Service 单元测试       不启动 HTTP，验证业务规则
+API 测试               TestClient/AsyncClient 验证状态码和响应
+数据库集成测试         验证查询、约束和事务
+端到端测试             从浏览器到真实测试环境
+```
+
+至少覆盖成功、认证失败、资源不存在、冲突和 Pydantic 422；测试之间要隔离数据。
 
 ## 16. 常见错误
 

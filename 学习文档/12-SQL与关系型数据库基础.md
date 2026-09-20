@@ -55,6 +55,18 @@ DEFAULT       未传值时的默认表达式
 
 前端和 Pydantic 校验改善体验，数据库约束负责最终一致性。
 
+SQL 语句常按职责理解：
+
+```text
+DDL   CREATE、ALTER、DROP，定义结构
+DML   INSERT、UPDATE、DELETE，修改数据
+DQL   SELECT，查询数据
+DCL   GRANT、REVOKE，控制权限
+TCL   BEGIN、COMMIT、ROLLBACK，控制事务
+```
+
+不同数据库对语法和事务行为有差异，本课程示例主要按 PostgreSQL 理解。生产环境的 DDL 应通过迁移执行和审查。
+
 ## 3. NULL
 
 NULL 表示未知、缺失或不适用，不等于 0、空字符串或 false。
@@ -85,6 +97,21 @@ LIMIT :page_size;
 ```
 
 业务查询明确列名，不长期依赖 `SELECT *`。
+
+常用筛选条件：
+
+```sql
+SELECT id, title, created_at
+FROM todos
+WHERE owner_id = :owner_id
+  AND title ILIKE :keyword
+  AND created_at >= :start_at
+  AND id IN (:allowed_id_1, :allowed_id_2)
+ORDER BY completed ASC, created_at DESC
+LIMIT :limit OFFSET :offset;
+```
+
+`AND` 优先级高于 `OR`，混用时使用括号表达意图。字符串模式中的 `%` 和 `_` 是通配符；大量模糊搜索应评估全文检索，而不是默认普通 B-tree 索引有效。
 
 ## 5. UPDATE 与 DELETE
 
@@ -166,6 +193,15 @@ CREATE TABLE todo_tags (
 
 中间表表达 Todo 与 Tag 的多对多关系，并阻止重复关联。
 
+关系设计通常遵循基本规范化思路：
+
+- 一个字段保存一个可查询的值，不把多个 tag ID 塞进逗号字符串；
+- 非主键字段应描述该行代表的实体或关系；
+- 重复实体拆表并用外键关联；
+- 只在有性能证据且能维护一致性时做反规范化。
+
+范式目标是减少重复和更新异常，不是把每个字段都拆成表。JSON 列适合结构灵活的附加数据，不应取代需要关联、约束和高频查询的核心字段。
+
 ## 9. 聚合
 
 ```sql
@@ -240,6 +276,17 @@ Durability   提交结果可恢复
 ```
 
 事务不要跨越慢外部 API 或用户等待，也不要在每个 Repository 方法中随意 commit。
+
+常见隔离级别由弱到强大致为：
+
+```text
+Read Uncommitted  可能读到未提交数据（PostgreSQL 按 Read Committed 处理）
+Read Committed    每条语句看到开始时已提交数据，PostgreSQL 默认
+Repeatable Read   同一事务重复读取保持一致快照
+Serializable      效果如同串行执行，冲突时可能要求重试
+```
+
+隔离级别越强不代表业务自动正确。应用仍要处理唯一约束冲突、死锁、序列化失败和幂等重试。
 
 ## 12. 并发控制
 
@@ -332,6 +379,18 @@ params = {"email": email}
 ```
 
 大表变更要考虑锁、回填、旧代码兼容和回滚。不要手工修改生产库后忘记迁移文件。
+
+安全的大字段变更常采用“扩展再收缩”：
+
+```text
+1. 新增兼容字段或表
+2. 部署可同时读写新旧结构的代码
+3. 分批回填历史数据并验证
+4. 切换读取到新结构
+5. 后续迁移删除旧结构
+```
+
+迁移文件要进入版本控制，并在空库升级、已有数据升级和回滚/前滚方案上验证。备份只能解决数据恢复，不等于迁移本身安全。
 
 ## 18. 常见错误
 

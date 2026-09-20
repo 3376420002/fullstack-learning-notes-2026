@@ -20,6 +20,15 @@ FastAPI
 
 组件不应重复拼接 baseURL、认证 Header 和错误结构。
 
+浏览器自带 `fetch`，Axios 是额外依赖。两者都能发送 HTTP 请求：
+
+```text
+fetch    原生、体积无额外依赖；非 2xx 默认不抛异常，需手工解析
+Axios    自动处理 JSON、非 2xx 抛错，提供实例、拦截器和超时配置
+```
+
+项目已有统一 Axios 层就继续复用；小型或追求原生依赖的项目可用 fetch。关键是统一封装，而不是混用多套错误规则。
+
 ## 2. 创建实例
 
 ```ts
@@ -44,6 +53,18 @@ http.post('/todos', { title: '学习 Axios' })
 http.patch('/todos/42', { completed: true })
 http.delete('/todos/42')
 ```
+
+Axios 返回的是响应对象，不只是业务数据：
+
+```ts
+const response = await http.get<TodoDto[]>('/todos')
+response.data      // 响应体
+response.status    // HTTP 状态码
+response.headers   // 响应头
+response.config    // 本次请求配置
+```
+
+通常 API 模块解构并返回 `data`，需要读取分页响应头或下载文件名时再保留完整响应。
 
 ```text
 params   Query String
@@ -179,6 +200,17 @@ http.interceptors.request.use((config) => {
 
 一个实例只应服务可信 API，避免把 Token 发到其他域名。拦截器注册一次，不要在组件每次渲染时注册。
 
+拦截器可同时处理成功和失败：
+
+```ts
+http.interceptors.response.use(
+  (response) => response,
+  (error) => Promise.reject(normalizeApiError(error)),
+)
+```
+
+多个拦截器的执行顺序不完全对称，请避免依赖复杂的注册顺序。认证刷新、日志和错误转换应职责单一，并用测试确认一次请求实际经过的流程。
+
 ## 10. 401 刷新原则
 
 ```text
@@ -264,6 +296,18 @@ await http.post('/users/me/avatar', formData)
 通常不要手工设置 multipart Content-Type，浏览器会生成 boundary。
 
 前端文件类型和大小校验只改善体验，后端必须重新验证。
+
+文件下载要声明二进制响应类型：
+
+```ts
+const { data } = await http.get('/reports/todos', {
+  responseType: 'blob',
+})
+const url = URL.createObjectURL(data)
+// 触发下载后调用 URL.revokeObjectURL(url)
+```
+
+Axios 的 `timeout` 表示客户端等待上限，不等于服务端事务必然停止。上传和下载大文件应设置符合业务的超时，并在界面提供进度、取消和失败重试策略。
 
 ## 15. 常见错误
 

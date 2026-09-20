@@ -99,6 +99,17 @@ devDependencies   构建、检查和测试工具
 scripts           团队统一命令入口
 ```
 
+常见语义化版本写作 `主版本.次版本.修订版本`：
+
+```text
+3.5.2
+│ │ └─ 修复兼容问题
+│ └── 新增向后兼容功能
+└──── 可能包含不兼容变化
+```
+
+`^3.5.0` 通常允许升级到同一主版本的较新版本，`~3.5.0` 通常只允许修订版本升级。`package.json` 表达允许范围，`pnpm-lock.yaml` 记录本次真正解析出的完整依赖图；二者都应提交。
+
 ## 5. pnpm 常用命令
 
 ```powershell
@@ -122,6 +133,8 @@ CI 常用：
 pnpm install --frozen-lockfile
 ```
 
+pnpm 会把下载内容集中存储，并通过链接组成项目的 `node_modules`，减少重复占用。它对“幽灵依赖”也更严格：代码直接 import 的包就应写入当前项目的 dependencies，而不是碰巧从另一个包的依赖中找到。
+
 ## 6. Vite 的两种工作
 
 ```text
@@ -138,6 +151,18 @@ pnpm preview
 `preview` 只用于本地查看构建结果，不是生产服务器。
 
 页面能在 dev 打开不代表类型检查和生产构建一定通过。
+
+构建后常见产物：
+
+```text
+dist/
+├─ index.html
+└─ assets/
+   ├─ index-[hash].js
+   └─ index-[hash].css
+```
+
+hash 便于长期缓存并在内容变化时更新。`dist` 是可部署的静态产物，通常由 CI 重新生成，不应与源代码混淆，也不要手工编辑。
 
 ## 7. 项目入口
 
@@ -157,6 +182,15 @@ import './assets/main.css'
 
 createApp(App).mount('#app')
 ```
+
+现代 Vite 项目使用 ESM：
+
+```ts
+import { createApp } from 'vue'
+export function createTodo() {}
+```
+
+ESM 的导入导出是静态结构，便于类型分析和按需打包。浏览器业务代码不要混用旧式 `require()`；配置文件若使用 Node API，要确认其执行环境是 Node 而不是浏览器。
 
 ## 8. 推荐目录
 
@@ -289,6 +323,8 @@ API 404           检查最终 URL、代理和 FastAPI prefix
 ```
 
 不要用删除 lockfile、升级全部依赖或关闭类型检查作为第一反应。
+
+依赖本身也是供应链的一部分。添加包前确认维护状态、许可证和必要性；升级时阅读变更说明并运行完整检查。前端环境变量、源码映射和构建产物中都不应包含密钥，发现安全告警时也要先判断受影响版本和调用路径，不能只看告警数量。
 
 ## 15. 给 AI 的开发指令
 

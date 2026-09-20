@@ -36,6 +36,18 @@ Python 是动态类型语言，名称可以绑定不同类型对象；同时它�
 
 类型注解主要服务编辑器、类型检查器和框架，普通 Python 默认不会自动执行注解校验。
 
+字符串常用操作：
+
+```python
+raw_title = "  Learn FastAPI  "
+title = raw_title.strip()
+slug = title.lower().replace(" ", "-")
+message = f"Todo: {title}"
+parts = title.split(" ")
+```
+
+字符串不可变，方法会返回新字符串。处理文件和 HTTP 文本时明确使用 UTF-8；不要手工拼接 SQL、JSON 或 URL，分别使用参数化查询、`json` 模块和 URL 工具。
+
 ## 3. 容器
 
 ```python
@@ -59,6 +71,16 @@ first = [1, 2]
 second = first
 second.append(3)
 assert first == [1, 2, 3]
+```
+
+`==` 比较值是否相等，`is` 比较是否为同一个对象：
+
+```python
+if todo is None:       # 单例 None 用 is
+    ...
+
+if todo.status == "completed":  # 普通值用 ==
+    ...
 ```
 
 ## 4. 条件与循环
@@ -101,6 +123,17 @@ list_todos(page=2, page_size=50)
 ```
 
 参数较多时使用名称比依赖顺序更清楚。
+
+可变数量参数：
+
+```python
+def log_event(event: str, *tags: str, **context: object) -> None:
+    print(event, tags, context)
+
+log_event("todo.created", "audit", todo_id=42, user_id=7)
+```
+
+`*args` 收集额外位置参数为 tuple，`**kwargs` 收集额外关键字参数为 dict。它们常见于框架和包装器，普通业务函数仍应优先使用明确参数。
 
 ## 6. 可变默认参数
 
@@ -242,6 +275,23 @@ class TodoService:
 
 后端项目通常优先组合，而不是建立多层抽象继承树。
 
+装饰器接收函数并返回包装后的函数，FastAPI 的 `@router.get(...)` 就是在注册路由：
+
+```python
+from functools import wraps
+
+def audit(action: str):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            print("audit", action)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+```
+
+自定义装饰器要保留元数据，并正确处理同步/异步函数。业务项目不要用层层装饰器隐藏核心控制流。
+
 ## 12. 上下文管理器与生成器
 
 ```python
@@ -305,6 +355,21 @@ database_url = os.environ["DATABASE_URL"]
 
 时间点使用带时区 UTC，金额使用 Decimal。秘密来自服务端环境，不写进源码或日志。
 
+常用标准库边界：
+
+```python
+from pathlib import Path
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+config_path = Path("config") / "defaults.json"
+payload = json.loads('{"title":"学习 Python"}')
+logger.info("todo created", extra={"todo_id": 42})
+```
+
+`Path` 比手工拼路径更跨平台；`json.loads/dumps` 处理字符串，`json.load/dump` 处理文件。正式服务使用 logging，不用 print 记录业务日志，并避免写入密码和 Token。
+
 ## 15. 项目结构与工具
 
 ```text
@@ -342,7 +407,17 @@ def test_normalize_title_rejects_blank_value() -> None:
 
 测试验证可观察行为、边界值和异常，不要只断言内部函数调用次数。
 
-## 17. 常见错误
+## 17. 并发、并行与 GIL
+
+```text
+asyncio       单线程中协调大量 I/O 等待
+线程          适合同步 I/O；共享内存要注意竞争
+多进程        适合 CPU 密集任务；进程间数据需通信
+```
+
+CPython 的 GIL 使同一进程中多个线程通常不能同时执行大量 Python CPU 字节码，但线程仍能在网络、文件等 I/O 等待期间发挥作用。Web 服务常用多个进程加异步 I/O；图片处理、模型计算等 CPU 任务放进进程池或任务队列。
+
+## 18. 常见错误
 
 - 提交 `.venv` 或本机秘密；
 - 使用可变默认参数；
@@ -353,7 +428,7 @@ def test_normalize_title_rejects_blank_value() -> None:
 - 为简单函数建立复杂类层次；
 - 日志包含密码、Token 和数据库连接信息。
 
-## 18. 给 AI 的开发指令
+## 19. 给 AI 的开发指令
 
 ```text
 请在现有 Python 项目中实现 TodoService。
@@ -364,7 +439,7 @@ Service 抛领域异常，不直接依赖 FastAPI HTTPException。
 完成后运行 Ruff、类型检查和 pytest。
 ```
 
-## 19. 面试表达
+## 20. 面试表达
 
 > Python 是动态类型语言，类型注解主要用于静态检查和框架元数据，默认不自动执行运行时校验。
 

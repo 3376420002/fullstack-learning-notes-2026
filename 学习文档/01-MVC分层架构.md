@@ -144,7 +144,64 @@ Todo ORM Model   数据库怎样保存
 
 数据库包含某字段，不代表 API 必须返回它。用户的 `password_hash` 永远不应因为 ORM 对象存在就暴露给前端。
 
-## 9. 常见错误
+## 9. 传统 MVC 与当前项目的区别
+
+传统服务端 MVC：
+
+```text
+浏览器请求 URL
+  ↓
+Controller 调用 Model
+  ↓
+Controller 选择服务器模板 View
+  ↓
+服务器返回完整 HTML
+```
+
+Vue + FastAPI：
+
+```text
+浏览器先加载 Vue 应用
+  ↓
+Vue 负责页面和交互
+  ↓ HTTP + JSON
+FastAPI 负责 API 和业务入口
+```
+
+因此前后端分离后，View 主要移动到了浏览器，但后端仍然需要响应模型、序列化和错误表现层。简单说“后端只剩 M + C”并不准确。
+
+## 10. 分层带来的实际好处
+
+假设数据库从 PostgreSQL 换成另一种存储：
+
+- Vue 页面通常不用修改；
+- Router 的 URL 和状态码通常不用修改；
+- Service 的业务规则尽量保持不变；
+- Repository 和数据库配置是主要变化位置。
+
+假设新增“普通用户不能删除他人任务”：
+
+- 权限规则进入 Service 或授权依赖；
+- Repository 仍只负责查询和修改；
+- Router 只把拒绝结果映射成 403。
+
+这就是分层的核心价值：让变化停留在最相关的位置。
+
+## 11. 依赖方向
+
+推荐方向：
+
+```text
+Router → Service → Repository → Database
+```
+
+外层可以依赖内层提供的能力，内层不应反向读取浏览器 Request 或 Vue 状态。
+
+常见做法是让 Service 依赖小型 Repository Protocol，再由 FastAPI Depends 注入 SQLAlchemy 实现。这样单元测试可以替换为内存实现。
+
+但不要为了“解耦”给每个简单函数都创建接口。只有存在替换、隔离或测试价值时再抽象。
+
+## 12. 常见错误
 
 - Router 直接创建数据库 Session 并写所有 SQL；
 - Service 到处抛 FastAPI `HTTPException`；
@@ -159,7 +216,7 @@ Todo ORM Model   数据库怎样保存
 HTTP 变化影响 Router，业务规则变化影响 Service，存储变化影响 Repository。
 ```
 
-## 10. 给 AI 的开发指令
+## 13. 给 AI 的开发指令
 
 ```text
 请按现有 FastAPI 项目的分层实现 Todo 创建功能。
@@ -178,7 +235,7 @@ Repository 负责 SQLAlchemy 查询与持久化。
 给出最小重构方案，不要为了形式增加目录。
 ```
 
-## 11. 面试表达
+## 14. 面试表达
 
 > MVC 通过 Model、View、Controller 分离数据、界面和输入协调。现代前后端分离项目通常扩展为 Router、Service、Repository 等分层。
 
@@ -188,7 +245,7 @@ Repository 负责 SQLAlchemy 查询与持久化。
 
 > Pydantic Schema 是 API 契约，SQLAlchemy Model 是数据库映射，二者字段可能相似但职责不同。
 
-## 12. 速查
+## 15. 速查
 
 ```text
 界面显示与交互       Vue

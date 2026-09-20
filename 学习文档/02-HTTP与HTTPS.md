@@ -183,7 +183,62 @@ If-None-Match: "todo-list-v3"
 
 用户私有数据、敏感响应和公共静态资源需要不同缓存策略，不能统一长期缓存。
 
-## 11. curl 联调
+## 11. URL 和连接过程
+
+```text
+https://api.example.com:443/api/v1/todos?page=2#section
+└协议  └主机              └路径          └Query  └Fragment
+```
+
+Fragment 通常只在浏览器端使用，不会作为普通 HTTP 请求内容发送给服务器。
+
+访问 HTTPS 地址时可以把过程简化为：
+
+```text
+DNS 解析域名
+  ↓
+建立网络连接
+  ↓
+TLS 验证证书并建立加密通道
+  ↓
+发送 HTTP 请求
+  ↓
+服务器处理并返回响应
+```
+
+排错时要区分 DNS、连接、TLS、网关、应用和数据库问题，而不是把所有失败都称为“接口报错”。
+
+## 12. 安全方法与幂等性
+
+```text
+Safe       正常语义下只读取，不修改资源，例如 GET
+Idempotent 重复执行后的最终状态与执行一次相同
+```
+
+GET、PUT、DELETE 通常设计为幂等；POST 通常不幂等。PATCH 是否幂等取决于更新方式。
+
+幂等非常重要，因为网络超时后客户端可能不知道服务器是否已经处理请求。支付、订单和创建操作常使用 Idempotency-Key 或业务唯一约束避免重复执行。
+
+## 13. Cookie 与 Token
+
+Cookie 是浏览器管理的键值数据，符合 Domain、Path、SameSite、Secure 等规则时会自动携带。
+
+Bearer Token 通常由前端放入：
+
+```http
+Authorization: Bearer <access-token>
+```
+
+两种方式都需要后端验证身份和权限：
+
+```text
+Cookie 会话   需要考虑 CSRF 与 Cookie 属性
+Bearer Token  需要考虑 Token 存储、过期、刷新与 XSS
+```
+
+认证表示“是谁”，授权表示“能做什么”，二者不能混为一谈。
+
+## 14. curl 联调
 
 查询：
 
@@ -202,7 +257,7 @@ curl.exe -i `
 
 `-i` 查看响应头，`-v` 查看连接和请求细节。Windows PowerShell 使用 `curl.exe` 可避免旧别名混淆。
 
-## 12. 排错顺序
+## 15. 排错顺序
 
 ```text
 1. 浏览器 Network 中最终 URL 是否正确
@@ -214,7 +269,7 @@ curl.exe -i `
 7. 是否误把 CORS 当成所有网络问题
 ```
 
-## 13. 给 AI 的开发指令
+## 16. 给 AI 的开发指令
 
 ```text
 请根据现有 FastAPI OpenAPI 设计 Vue 的 Todo 请求。
@@ -232,7 +287,7 @@ curl.exe -i `
 先给出证据，再修改代码，不要用关闭 CORS 或忽略状态码掩盖问题。
 ```
 
-## 14. 面试表达
+## 17. 面试表达
 
 > HTTP 请求由方法、URL、Header 和可选 Body 组成，响应由状态码、Header 和可选 Body 组成。
 

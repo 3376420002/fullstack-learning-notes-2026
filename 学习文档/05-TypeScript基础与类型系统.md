@@ -31,6 +31,21 @@ const title = '学习 TypeScript'
 
 函数边界、公共类型和空数组更值得明确标注。
 
+类型推断适合局部且含义明确的值；以下边界建议显式声明：
+
+- 导出的函数、组件 Props 和公共 API；
+- 空数组、初始值为 null 的状态；
+- 回调参数无法从上下文推断时；
+- 希望编译器约束返回值而不只是推断时。
+
+```ts
+const todos = ref<Todo[]>([])
+
+export function findTodo(id: number): Todo | undefined {
+  return todos.value.find((todo) => todo.id === id)
+}
+```
+
 ## 3. Object 类型
 
 ```ts
@@ -52,6 +67,20 @@ const todo: Todo = {
 ```
 
 不要使用宽泛的 `object` 或 `{}` 代替具体业务结构。
+
+只读数据可以明确表达不能被重新赋值：
+
+```ts
+interface Todo {
+  readonly id: number
+  title: string
+}
+
+const statuses = ['active', 'completed'] as const
+type TodoStatus = (typeof statuses)[number]
+```
+
+`readonly` 是编译期限制，不会在运行时冻结对象；`as const` 会保留字面量并把属性变为只读。
 
 ## 4. interface 与 type
 
@@ -182,6 +211,17 @@ type TodoById = Record<number, Todo>
 
 Utility Types 适合从现有类型派生，减少重复；但 API 请求类型涉及不同语义时，单独定义往往更清楚。
 
+当你既想检查对象是否符合某个类型，又想保留它自身更精确的推断时，可使用 `satisfies`：
+
+```ts
+const statusLabels = {
+  active: '进行中',
+  completed: '已完成',
+} satisfies Record<TodoStatus, string>
+```
+
+它与 `as` 不同：`satisfies` 会检查结构，不是强行告诉编译器“相信我”。
+
 ## 11. unknown、any 与 never
 
 ```ts
@@ -222,6 +262,8 @@ const input = event.target as HTMLInputElement
 const data: unknown = await response.json()
 const todo = todoSchema.parse(data)
 ```
+
+TypeScript 类型在编译后通常会被删除，所以它无法自动阻止以下运行时问题：接口返回错误结构、字符串无法转为日期、网络失败、用户输入非法、对象被第三方脚本修改。来自 HTTP、localStorage 和表单的数据仍要验证或解析。
 
 ## 13. API 类型
 
@@ -298,7 +340,22 @@ Vue 项目通常使用 `vue-tsc` 检查 `.vue` 文件：
 pnpm type-check
 ```
 
-## 16. 常见错误
+## 16. 模块与类型导入
+
+每个含 `import` 或 `export` 的文件都是模块。只导入类型时使用 `import type`：
+
+```ts
+import type { Todo } from '@/types/todo'
+import { listTodos } from '@/api/todos'
+
+export type { Todo }
+```
+
+这样可以清楚区分“只给编译器使用的类型”和“运行时必须存在的值”，也避免某些构建配置下产生多余导入。
+
+注意：interface 和 type 不能当运行时值使用。需要遍历状态时，应另外定义常量数组或枚举式对象。
+
+## 17. 常见错误
 
 - 大量使用 any；
 - 用类型断言掩盖后端响应错误；
@@ -308,7 +365,7 @@ pnpm type-check
 - 页面能运行就跳过 `vue-tsc`；
 - 前后端复制类型后长期不同步。
 
-## 17. 给 AI 的开发指令
+## 18. 给 AI 的开发指令
 
 ```text
 请为现有 Vue 3 + TypeScript 项目实现 Todo 类型和组件。
@@ -326,7 +383,7 @@ Props 和 Emits 完整类型化，正确区分可选字段、null 和 undefined�
 先修复数据契约或控制流根因，不要通过关闭 strict 消除报错。
 ```
 
-## 18. 面试表达
+## 19. 面试表达
 
 > TypeScript 在 JavaScript 上增加静态类型，类型通常在编译后消失，运行时仍是 JavaScript。
 
