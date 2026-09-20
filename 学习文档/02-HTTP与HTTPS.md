@@ -1,302 +1,661 @@
 # 02｜HTTP 与 HTTPS
 
-> 目标：看懂前后端请求、正确选择方法和状态码，并能让 AI 根据接口契约开发和排错。
+> 所属阶段：前后端通信基础  
+> 前置知识：MVC 分层架构  
+> 本课目标：能够读懂、设计、发送和排查一个完整的 HTTP 请求，并理解 HTTPS 在其中提供的安全能力。
 
-[← MVC 与分层](./01-MVC分层架构.md) · [学习首页](../README.md) · [JSON →](./03-JSON数据格式.md)
+[← MVC 分层架构](./01-MVC分层架构.md) · [学习首页](../README.md) · [JSON 数据格式 →](./03-JSON数据格式.md)
 
-## 1. 一次请求包含什么
+## 1. 为什么 MVC 之后先学 HTTP
+
+上一课建立了这条调用链：
+
+```text
+Vue View → API 层 → FastAPI Router → Service → Model → Database
+```
+
+其中，Vue 与 FastAPI 并不是直接调用彼此的函数。它们通过网络交换 HTTP 请求和响应：
+
+```text
+浏览器 / Vue              FastAPI / Controller
+     │                           │
+     ├──── HTTP Request ────────>│
+     │                           │
+     │<─── HTTP Response ────────┤
+```
+
+所以 HTTP 是 View 与 Controller 之间的边界语言。以后遇到“页面拿不到数据”，首先要判断问题发生在哪一段：
+
+- 请求有没有发出？
+- URL 和方法是否正确？
+- 参数放对位置了吗？
+- 服务端返回了什么状态码？
+- 响应体是不是预期结构？
+- 是否被浏览器的 CORS 策略拦截？
+
+## 2. HTTP 的基本心智模型
+
+HTTP 是一种**请求—响应协议**：客户端先发起请求，服务器处理后返回响应。
+
+```mermaid
+sequenceDiagram
+    participant Client as 浏览器客户端
+    participant Server as FastAPI服务端
+    Client->>Server: HTTP Request
+    Server-->>Client: HTTP Response
+```
+
+一次普通请求通常经历：
+
+1. 根据域名查询服务器地址；
+2. 建立网络连接；
+3. 使用 HTTPS 时进行 TLS 握手；
+4. 客户端发送 HTTP 请求；
+5. 服务端路由、执行业务并生成响应；
+6. 客户端根据状态码、响应头和响应体处理结果。
+
+HTTP 本身是无状态的：两次请求默认互不认识。登录状态通常通过 Cookie、Session 或 Token 等机制补充。
+
+## 3. 一个 HTTP 请求由什么组成
+
+下面是一个创建 Todo 的简化原始请求：
 
 ```http
 POST /api/v1/todos HTTP/1.1
-Host: example.com
+Host: api.example.com
 Content-Type: application/json
-Authorization: Bearer <token>
+Authorization: Bearer eyJhbGciOi...
+Accept: application/json
 
-{"title":"学习 HTTP"}
+{
+  "title": "学习 HTTP"
+}
 ```
+
+它包含三个主要部分。
+
+### 3.1 请求行
 
 ```text
-Method   要执行的动作
-Path     目标资源
-Query    筛选、排序、分页
-Header   内容类型、认证、缓存等元数据
-Body     创建或更新的数据
+POST /api/v1/todos HTTP/1.1
 ```
 
-响应：
+- `POST`：请求方法，表示这次操作的语义；
+- `/api/v1/todos`：请求目标；
+- `HTTP/1.1`：协议版本。
+
+浏览器开发者工具通常不会完整显示这行原文，而是分别显示 Request Method、Request URL 等字段。
+
+### 3.2 请求头 Headers
+
+请求头描述请求的附加信息：
+
+- `Host`：目标主机；
+- `Content-Type`：请求体是什么格式；
+- `Accept`：客户端希望收到什么格式；
+- `Authorization`：身份凭证；
+- `Cookie`：浏览器保存并随请求发送的数据；
+- `User-Agent`：客户端信息；
+- `Origin`：浏览器请求的来源，CORS 会使用它。
+
+HTTP 头名称不区分大小写，但项目中应保持统一写法。
+
+### 3.3 请求体 Body
+
+请求体承载要提交的数据。上例使用 JSON：
+
+```json
+{
+  "title": "学习 HTTP"
+}
+```
+
+不是所有请求都需要请求体。GET 查询通常使用路径参数和查询参数，不应依赖 GET 请求体，因为很多客户端、中间件和缓存无法稳定处理它。
+
+## 4. 一个 HTTP 响应由什么组成
+
+创建成功时，服务端可能返回：
 
 ```http
 HTTP/1.1 201 Created
 Content-Type: application/json
+Location: /api/v1/todos/42
+X-Trace-ID: fdb22e08
 
-{"id":1,"title":"学习 HTTP","completed":false}
+{
+  "id": 42,
+  "title": "学习 HTTP",
+  "completed": false
+}
 ```
 
-## 2. 请求位置
+响应同样有三个关键部分：
 
-| 位置 | 适合内容 | 示例 |
-| --- | --- | --- |
-| Path | 资源身份 | `/todos/42` |
-| Query | 搜索、筛选、分页 | `?status=active&page=2` |
-| Header | 认证、格式、追踪 | `Authorization` |
-| JSON Body | 结构化输入 | `{"title":"学习"}` |
-| FormData | 文件与表单字段 | 头像上传 |
+1. 状态行：协议版本、状态码、原因短语；
+2. 响应头：格式、缓存策略、追踪编号等元数据；
+3. 响应体：真正返回给客户端的数据。
 
-密码和长期 Token 不应放 URL，因为 URL 可能进入历史、日志和分享内容。
+前端不能只看响应体，还要先判断状态码代表成功还是失败。
 
-## 3. 常用 HTTP 方法
+## 5. URL 的组成
 
-| 方法 | 用途 | Todo 示例 |
-| --- | --- | --- |
-| GET | 查询 | `GET /todos` |
-| POST | 创建或执行动作 | `POST /todos` |
-| PUT | 整体替换 | `PUT /todos/42` |
-| PATCH | 部分更新 | `PATCH /todos/42` |
-| DELETE | 删除 | `DELETE /todos/42` |
-
-GET、PUT、DELETE 通常被设计为幂等操作；多次执行的最终状态与执行一次相同。POST 通常不是幂等的。
-
-实际行为仍由接口实现决定，不能只看方法名称。
-
-## 4. REST 风格路径
-
-推荐使用名词：
+观察这个地址：
 
 ```text
-GET    /api/v1/todos
-POST   /api/v1/todos
-GET    /api/v1/todos/42
-PATCH  /api/v1/todos/42
-DELETE /api/v1/todos/42
+https://api.example.com:443/api/v1/todos/42?include=owner#detail
 ```
 
-业务动作可以明确表达：
+| 部分 | 示例 | 作用 |
+| --- | --- | --- |
+| Scheme | `https` | 使用什么协议 |
+| Host | `api.example.com` | 访问哪台主机 |
+| Port | `443` | 访问主机上的哪个端口；HTTPS 默认 443 |
+| Path | `/api/v1/todos/42` | 定位资源或路由 |
+| Query | `include=owner` | 提供查询条件或选项 |
+| Fragment | `detail` | 页面内部定位，只由客户端处理，不会发送给服务器 |
+
+注意：URL 中包含敏感信息很危险。查询参数可能被浏览器历史、代理日志、服务器日志和分析系统记录，因此密码和访问令牌不应放在 Query 中。
+
+## 6. 请求方法与语义
+
+| 方法 | 常见用途 | 是否安全 | 通常是否幂等 | Todo 示例 |
+| --- | --- | --- | --- | --- |
+| GET | 查询资源 | 是 | 是 | 获取 Todo 列表 |
+| POST | 创建资源或触发操作 | 否 | 否 | 创建一个 Todo |
+| PUT | 全量替换指定资源 | 否 | 是 | 完整替换 Todo 42 |
+| PATCH | 局部更新资源 | 否 | 不保证 | 只修改 completed |
+| DELETE | 删除资源 | 否 | 是 | 删除 Todo 42 |
+
+### 6.1 “安全”是什么意思
+
+安全方法表示客户端不请求改变服务器业务状态。GET 可以产生访问日志、计数等附带变化，但不应执行“删除订单”这样的业务副作用。
+
+### 6.2 “幂等”是什么意思
+
+同一个请求执行一次或重复执行多次，服务端的**预期最终状态**相同。
 
 ```text
-POST /api/v1/todos/42/complete
+PUT /todos/42  repeated → Todo 42 仍是同一份指定内容
+DELETE /todos/42 repeated → Todo 42 最终都不存在
+POST /todos repeated → 可能创建多条记录
 ```
 
-不要把接口全部设计成 `/getTodo`、`/deleteTodo`，也不要为了“纯 REST”牺牲清晰的业务语义。
+幂等不代表每次响应必须完全相同。例如第一次 DELETE 可能返回 `204`，再次删除可能返回 `404`，但最终状态仍是“资源不存在”。
 
-## 5. 常用状态码
+支付、下单等 POST 请求通常需要额外的幂等键，避免网络重试造成重复业务操作。
+
+## 7. 参数应该放在哪里
+
+### 7.1 Path 路径参数
+
+用于标识某个具体资源：
+
+```http
+GET /api/v1/todos/42
+```
+
+这里的 `42` 是 Todo 的资源标识。
+
+### 7.2 Query 查询参数
+
+用于过滤、排序、搜索和分页：
+
+```http
+GET /api/v1/todos?completed=false&page=1&page_size=20
+```
+
+Query 参数通常是可选条件，不应该用来承载密码、Token 等敏感数据。
+
+### 7.3 Header 请求头参数
+
+用于身份、内容协商、追踪和客户端元数据：
+
+```http
+Authorization: Bearer <token>
+Accept-Language: zh-CN
+X-Trace-ID: fdb22e08
+```
+
+### 7.4 Cookie
+
+Cookie 由浏览器保存，并根据域名、路径、安全属性等规则自动携带。它经常用于 Session 标识、偏好设置和某些认证方案。
+
+### 7.5 Body 请求体
+
+用于提交结构化数据或文件：
+
+```json
+{
+  "title": "学习 HTTP",
+  "completed": false
+}
+```
+
+一个实用判断规则：
+
+```text
+资源身份 → Path
+筛选与分页 → Query
+认证与元数据 → Header / Cookie
+需要创建或修改的数据 → Body
+```
+
+## 8. 常用状态码
+
+状态码是服务端对本次请求结果的第一层说明。
+
+### 8.1 2xx：成功
 
 | 状态码 | 含义 | 常见场景 |
-| ---: | --- | --- |
-| 200 | 成功并返回内容 | 查询、更新 |
-| 201 | 创建成功 | POST 创建资源 |
-| 204 | 成功但无响应体 | 删除成功 |
-| 400 | 通用错误请求 | 无法处理的输入 |
-| 401 | 未认证 | Token 缺失或失效 |
-| 403 | 已认证但无权限 | 操作他人资源 |
-| 404 | 路由或资源不存在 | Todo 不存在 |
-| 409 | 状态冲突 | 重复或版本冲突 |
-| 415 | 不支持的媒体类型 | 要求 JSON 却发送其他格式 |
-| 422 | 字段验证失败 | FastAPI 请求校验 |
-| 429 | 请求过多 | 触发限流 |
-| 500 | 未处理的服务端错误 | 程序异常 |
-| 502/503/504 | 网关或服务不可用 | 上游故障、过载、超时 |
+| --- | --- | --- |
+| 200 OK | 成功并返回内容 | 查询、普通更新 |
+| 201 Created | 成功创建资源 | POST 创建 Todo |
+| 204 No Content | 成功但没有响应体 | 删除成功 |
 
-不要把所有业务失败都包装成 HTTP 200。状态码负责传输语义，响应体业务 code 提供更细分类。
+`204` 响应不能再携带 JSON 响应体。
 
-## 6. Header 重点
+### 8.2 3xx：重定向与缓存
 
-```text
-Content-Type       请求体格式
-Accept             希望接收的格式
-Authorization      认证凭据
-Cache-Control      缓存策略
-ETag               资源版本标识
-If-None-Match      条件请求
-Location           新资源地址
-X-Request-ID       链路追踪标识
-```
+| 状态码 | 含义 | 常见场景 |
+| --- | --- | --- |
+| 301 | 永久重定向 | 地址永久迁移 |
+| 302 | 临时重定向 | 临时跳转 |
+| 304 | 资源未修改 | 协商缓存命中 |
 
-JSON 请求：
+### 8.3 4xx：客户端请求问题
+
+| 状态码 | 含义 | 常见场景 |
+| --- | --- | --- |
+| 400 Bad Request | 请求无法被正确处理 | 格式或业务请求有问题 |
+| 401 Unauthorized | 尚未通过身份认证 | 未登录、Token 无效或过期 |
+| 403 Forbidden | 身份已知但没有权限 | 普通用户访问管理员接口 |
+| 404 Not Found | 资源或路由不存在 | Todo 42 不存在 |
+| 409 Conflict | 请求与当前状态冲突 | 唯一性冲突、版本冲突 |
+| 422 Unprocessable Content | 请求格式可读，但字段校验失败 | FastAPI/Pydantic 校验失败 |
+| 429 Too Many Requests | 请求过于频繁 | 触发限流 |
+
+常见记忆错误：`401` 主要是“你是谁还没有被有效确认”，`403` 主要是“已经知道你是谁，但你不能做这件事”。
+
+### 8.4 5xx：服务端问题
+
+| 状态码 | 含义 | 常见场景 |
+| --- | --- | --- |
+| 500 Internal Server Error | 未被正确处理的服务端错误 | 程序异常 |
+| 502 Bad Gateway | 网关收到无效上游响应 | 反向代理无法正常访问应用 |
+| 503 Service Unavailable | 服务暂时不可用 | 维护、过载、依赖故障 |
+| 504 Gateway Timeout | 网关等待上游超时 | 上游处理过慢或网络故障 |
+
+前端不应把所有失败都显示成“网络错误”。应根据状态码给用户有区别的反馈，同时保留 Trace ID 供排查。
+
+## 9. Content-Type：请求体到底是什么
+
+### 9.1 application/json
+
+适合普通结构化数据：
 
 ```http
 Content-Type: application/json
 ```
 
-FormData 的 boundary 通常由浏览器生成，不要手工写一个不完整的 Content-Type。
-
-## 7. HTTP 是无状态协议
-
-每个请求应带上处理它所需的信息。登录状态通常通过：
-
-```text
-Authorization Bearer Token
-或 Cookie Session
+```json
+{
+  "title": "学习 HTTP"
+}
 ```
 
-无状态不表示服务器不能保存用户或会话数据，而是 HTTP 请求本身不自动记住上一次请求。
+### 9.2 multipart/form-data
 
-## 8. HTTPS
+适合上传文件并同时携带表单字段。浏览器或 HTTP 客户端会自动生成分隔边界，不要手动拼接其 `boundary`。
 
-HTTPS 是 HTTP 运行在 TLS 保护之上，主要提供：
+### 9.3 application/x-www-form-urlencoded
 
-- 加密，降低窃听风险；
-- 完整性，降低内容被篡改风险；
-- 服务器身份验证。
-
-HTTPS 不会自动修复：
-
-- SQL 注入；
-- XSS；
-- 越权；
-- 弱密码；
-- 服务端日志泄密。
-
-生产环境通常由反向代理、负载均衡或云平台终止 TLS。
-
-## 9. CORS
-
-当前端和 API 的协议、主机或端口不同，浏览器会执行跨源规则。
+传统 HTML 表单常用：
 
 ```text
-http://localhost:5173
-http://localhost:8000
+username=alice&password=example
 ```
 
-它们端口不同，因此是不同 Origin。
+选择原则：
 
-CORS 是浏览器读取跨源响应的策略，不是认证和权限系统。curl 和服务端程序不受浏览器 CORS 限制。
+- 普通结构化 API 数据优先 JSON；
+- 涉及文件上传使用 multipart；
+- 对接传统表单或特定 OAuth2 流程时可能使用 urlencoded。
 
-带 Cookie 凭据时要配置明确可信 Origin，不能简单使用 `*`。
-
-## 10. 缓存与条件请求
+## 10. Content-Type 与 Accept 不要混淆
 
 ```http
-ETag: "todo-list-v3"
+Content-Type: application/json
+Accept: application/json
 ```
 
-客户端再次请求：
+- `Content-Type` 描述“我这次发送的 Body 是什么格式”；
+- `Accept` 表达“我希望你用什么格式返回”。
+
+如果客户端把 JSON 发送成错误的 Content-Type，服务端可能无法解析请求体。
+
+## 11. RESTful 接口设计
+
+RESTful 不是“URL 中不能出现任何动词”的死规则，而是一组围绕资源和 HTTP 语义组织接口的设计方式。
+
+推荐的 Todo 接口：
+
+| 需求 | 方法与路径 |
+| --- | --- |
+| 查询列表 | `GET /api/v1/todos` |
+| 查询一个 | `GET /api/v1/todos/42` |
+| 创建 | `POST /api/v1/todos` |
+| 全量替换 | `PUT /api/v1/todos/42` |
+| 局部更新 | `PATCH /api/v1/todos/42` |
+| 删除 | `DELETE /api/v1/todos/42` |
+
+设计建议：
+
+- 资源名优先使用名词复数，如 `/todos`；
+- 资源 ID 放在 Path；
+- 过滤、排序和分页放在 Query；
+- 使用 HTTP 方法表达通用操作；
+- 使用状态码表达处理结果；
+- URL 中保留版本前缀，例如 `/api/v1`；
+- 确实无法自然表达为 CRUD 的业务动作可以设计成子资源或动作端点，但要保持团队一致。
+
+不推荐：
+
+```text
+GET /getTodoList
+POST /deleteTodo?id=42
+POST /updateTodoCompleted?id=42
+```
+
+这些路径把动作重复写进 URL，并且可能违反 GET 不改变业务状态的约定。
+
+## 12. HTTPS 比 HTTP 多了什么
+
+HTTPS 可以理解为“通过 TLS 保护的 HTTP”。TLS 主要提供三项能力：
+
+1. **机密性**：中间人难以直接读取传输内容；
+2. **完整性**：传输内容被篡改时可以被发现；
+3. **服务器身份验证**：客户端通过证书确认正在连接预期域名的服务器。
+
+简化流程：
+
+```text
+客户端访问 https://api.example.com
+        ↓
+服务端发送证书和握手信息
+        ↓
+客户端检查证书链、域名和有效期
+        ↓
+双方协商会话密钥
+        ↓
+后续 HTTP 数据加密传输
+```
+
+HTTPS 不能自动解决：
+
+- 服务端自身存在的程序漏洞；
+- 用户主动把密码交给钓鱼网站；
+- 接口权限设计错误；
+- 数据到达服务端后的泄漏；
+- 客户端设备已经被恶意软件控制。
+
+开发环境里忽略证书错误可能方便调试，但生产环境不能把“关闭证书校验”当成解决方案。
+
+## 13. Cookie、Session 与 Token
+
+### 13.1 Cookie
+
+Cookie 是浏览器侧的小段数据。常见安全属性：
+
+- `HttpOnly`：阻止普通 JavaScript 读取，降低令牌被脚本窃取的风险；
+- `Secure`：只通过 HTTPS 发送；
+- `SameSite`：限制跨站携带行为；
+- `Domain` 和 `Path`：限定发送范围；
+- `Expires` 或 `Max-Age`：控制有效期。
+
+### 13.2 Session
+
+服务器保存登录状态，浏览器 Cookie 通常只保存 Session ID：
+
+```text
+Cookie: session_id=abc123
+```
+
+服务器根据 Session ID 找到用户身份。
+
+### 13.3 Token
+
+客户端持有令牌，请求时主动放入 Header：
 
 ```http
-If-None-Match: "todo-list-v3"
+Authorization: Bearer <access_token>
 ```
 
-内容未变化时服务器可以返回：
+Token 不等于“天然安全”。仍然需要 HTTPS、合理的过期时间、安全存储、权限检查和泄漏后的失效机制。
+
+## 14. CORS 是什么
+
+CORS 是浏览器实施的跨源访问规则。两个地址的协议、主机或端口只要有一项不同，就属于不同 Origin：
+
+```text
+http://localhost:5173  前端开发服务器
+http://localhost:8000  FastAPI 后端
+```
+
+即使都在本机，它们仍然跨源，因为端口不同。
+
+服务端需要返回适当的响应头，例如：
 
 ```http
-304 Not Modified
+Access-Control-Allow-Origin: http://localhost:5173
 ```
 
-用户私有数据、敏感响应和公共静态资源需要不同缓存策略，不能统一长期缓存。
+某些请求发送前，浏览器还会先发送 `OPTIONS` 预检请求。
 
-## 11. URL 和连接过程
+重要边界：
 
-```text
-https://api.example.com:443/api/v1/todos?page=2#section
-└协议  └主机              └路径          └Query  └Fragment
-```
+- CORS 主要是浏览器安全策略；
+- Postman、Apifox、curl 和后端服务之间的请求通常不受浏览器 CORS 限制；
+- 请求在 Apifox 成功、在网页失败时，应优先检查浏览器控制台和 CORS 响应头；
+- 允许凭证时不能随意把允许来源写成 `*`。
 
-Fragment 通常只在浏览器端使用，不会作为普通 HTTP 请求内容发送给服务器。
+## 15. 缓存的基础认识
 
-访问 HTTPS 地址时可以把过程简化为：
+缓存可以减少重复传输，但错误缓存也会导致“明明更新了，页面还是旧数据”。
 
-```text
-DNS 解析域名
-  ↓
-建立网络连接
-  ↓
-TLS 验证证书并建立加密通道
-  ↓
-发送 HTTP 请求
-  ↓
-服务器处理并返回响应
-```
-
-排错时要区分 DNS、连接、TLS、网关、应用和数据库问题，而不是把所有失败都称为“接口报错”。
-
-## 12. 安全方法与幂等性
-
-```text
-Safe       正常语义下只读取，不修改资源，例如 GET
-Idempotent 重复执行后的最终状态与执行一次相同
-```
-
-GET、PUT、DELETE 通常设计为幂等；POST 通常不幂等。PATCH 是否幂等取决于更新方式。
-
-幂等非常重要，因为网络超时后客户端可能不知道服务器是否已经处理请求。支付、订单和创建操作常使用 Idempotency-Key 或业务唯一约束避免重复执行。
-
-## 13. Cookie 与 Token
-
-Cookie 是浏览器管理的键值数据，符合 Domain、Path、SameSite、Secure 等规则时会自动携带。
-
-Bearer Token 通常由前端放入：
+常见响应头：
 
 ```http
-Authorization: Bearer <access-token>
+Cache-Control: no-cache
+ETag: "todo-list-v12"
 ```
 
-两种方式都需要后端验证身份和权限：
+客户端下次可以携带：
 
-```text
-Cookie 会话   需要考虑 CSRF 与 Cookie 属性
-Bearer Token  需要考虑 Token 存储、过期、刷新与 XSS
+```http
+If-None-Match: "todo-list-v12"
 ```
 
-认证表示“是谁”，授权表示“能做什么”，二者不能混为一谈。
+资源未变化时，服务端返回 `304 Not Modified`，客户端继续使用本地副本。
 
-## 14. curl 联调
+需要登录的私有数据必须谨慎设置缓存范围，避免被共享缓存错误保存。
 
-查询：
+## 16. 浏览器开发者工具排查方法
+
+打开浏览器开发者工具的 Network 面板，选择一个请求，按以下顺序检查：
+
+1. **Request URL**：域名、端口、路径是否正确；
+2. **Request Method**：GET、POST 等是否符合接口定义；
+3. **Status Code**：服务端给出了哪类结果；
+4. **Request Headers**：认证、Content-Type、Origin 是否正确；
+5. **Query String Parameters**：筛选和分页参数是否正确；
+6. **Request Payload**：请求体字段名、类型和层级是否正确；
+7. **Response Headers**：Content-Type、CORS、缓存信息；
+8. **Response / Preview**：服务端实际返回的数据或错误详情；
+9. **Timing**：DNS、连接、等待响应分别耗时多久。
+
+排错时不要只看前端弹出的“请求失败”。Network 面板中的原始信息才是判断依据。
+
+## 17. 使用 curl 观察 HTTP
+
+Windows PowerShell 中建议明确使用 `curl.exe`，避免与旧环境里的 PowerShell 别名混淆。
+
+### 17.1 只查看响应头
 
 ```powershell
-curl.exe -i "http://127.0.0.1:8000/api/v1/todos?page=1"
+curl.exe -I https://example.com
 ```
 
-创建：
+### 17.2 显示请求与响应细节
+
+```powershell
+curl.exe -v https://example.com
+```
+
+### 17.3 调用本地 Todo 接口
+
+以下命令需要未来启动本地后端后再执行：
 
 ```powershell
 curl.exe -i `
-  -X POST "http://127.0.0.1:8000/api/v1/todos" `
+  -X POST "http://localhost:8000/api/v1/todos" `
   -H "Content-Type: application/json" `
   -d '{"title":"学习 HTTP"}'
 ```
 
-`-i` 查看响应头，`-v` 查看连接和请求细节。Windows PowerShell 使用 `curl.exe` 可避免旧别名混淆。
+参数含义：
 
-## 15. 排错顺序
+- `-i`：把响应头一起输出；
+- `-X POST`：指定方法；
+- `-H`：添加请求头；
+- `-d`：发送请求体。
 
-```text
-1. 浏览器 Network 中最终 URL 是否正确
-2. Method、Query、Header、Body 是否符合契约
-3. 请求是否到达 FastAPI
-4. 状态码是 404、422、500 还是网络错误
-5. Content-Type 和响应体是什么
-6. Vite 代理与生产网关是否正确
-7. 是否误把 CORS 当成所有网络问题
-```
+## 18. 从状态码定位问题
 
-## 16. 给 AI 的开发指令
+可以先用这张简化决策表：
 
 ```text
-请根据现有 FastAPI OpenAPI 设计 Vue 的 Todo 请求。
-明确 Method、Path、Query、Header、JSON Body、成功状态码和错误状态码。
-区分 401、403、404、409、422 与 5xx，不把所有失败处理成 200。
-不要把 Token 放入 URL，不要手工设置 FormData boundary。
-完成后给出 curl 验证命令和浏览器 Network 检查点。
+请求根本没有出现
+└─ 检查前端事件、URL 拼接、浏览器控制台
+
+请求出现但被浏览器拦截
+└─ 检查 CORS、HTTPS 混合内容、证书
+
+4xx
+├─ 401：凭证缺失、无效或过期
+├─ 403：没有权限
+├─ 404：路径或资源不存在
+├─ 409：资源状态冲突
+└─ 422：请求字段、类型或校验规则不匹配
+
+5xx
+└─ 检查后端日志、Trace ID、数据库和上游依赖
+
+2xx 但页面仍错误
+└─ 检查响应 JSON、前端类型、状态更新和渲染逻辑
 ```
 
-排错指令：
+## 19. 常见误区
 
-```text
-请根据实际请求、响应和日志诊断 HTTP 问题。
-依次检查 URL、方法、Content-Type、认证、CORS、状态码和响应体。
-先给出证据，再修改代码，不要用关闭 CORS 或忽略状态码掩盖问题。
-```
+### 误区一：状态码是 200 就一定正确
 
-## 17. 面试表达
+业务结果、响应结构和页面处理仍可能错误。反过来，也不要把所有业务失败都包装成 `200`。
 
-> HTTP 请求由方法、URL、Header 和可选 Body 组成，响应由状态码、Header 和可选 Body 组成。
+### 误区二：POST 比 GET 更安全
 
-> 401 表示未通过认证，403 表示身份已知但没有权限，422 在 FastAPI 中常表示请求字段校验失败。
+POST 参数不会直接显示在地址栏，但如果使用明文 HTTP，中间人仍可能看到请求体。真正保护传输的是 HTTPS。
 
-> PUT 通常表达整体替换，PATCH 表达部分更新；幂等表示重复执行的最终状态与执行一次相同。
+### 误区三：幂等就是响应完全相同
 
-> HTTPS 提供传输加密、完整性和服务器身份验证，但不能替代应用层安全。
+幂等关注服务器的预期最终状态，而不是每次响应文字和状态码必须一样。
 
-> CORS 是浏览器跨源策略，不是后端权限控制。
+### 误区四：CORS 是后端接口无法访问
 
-[进入下一课：JSON 数据格式 →](./03-JSON数据格式.md)
+CORS 常常只是浏览器拒绝把响应交给网页。相同接口可能仍能被 Apifox 或 curl 正常访问。
+
+### 误区五：前端校验后，后端就不用校验
+
+任何人都可以绕过页面直接发请求。后端必须独立完成数据校验和权限检查。
+
+### 误区六：HTTPS 代表网站绝对可信
+
+HTTPS 证明连接受到保护并帮助验证域名身份，不保证网站业务本身诚实或没有漏洞。
+
+## 20. 本课实操
+
+### 练习 A：拆解请求
+
+打开任意网站的开发者工具，在 Network 面板选择一个请求，记录：
+
+- Method；
+- URL 的 Scheme、Host、Path、Query；
+- Status Code；
+- Request Content-Type；
+- Response Content-Type；
+- 请求体和响应体是否存在；
+- 是否使用 HTTPS。
+
+注意不要把 Cookie、Authorization 或个人数据复制到公开位置。
+
+### 练习 B：设计 Todo API
+
+为以下需求写出方法、路径、参数位置和成功状态码：
+
+1. 查询第 2 页未完成任务；
+2. 查询 ID 为 42 的任务；
+3. 创建任务；
+4. 把任务 42 标记为完成；
+5. 删除任务 42。
+
+### 练习 C：分析故障
+
+分别解释下面情况优先检查什么：
+
+1. Apifox 成功，但浏览器提示 CORS；
+2. 接口返回 422；
+3. 接口返回 401；
+4. 接口返回 403；
+5. 接口返回 500，响应头含 `X-Trace-ID`；
+6. POST 因超时自动重试后产生两条订单。
+
+## 21. 练习 B 参考方案
+
+| 需求 | 建议设计 | 成功状态码 |
+| --- | --- | --- |
+| 查询第 2 页未完成任务 | `GET /api/v1/todos?completed=false&page=2` | 200 |
+| 查询任务 42 | `GET /api/v1/todos/42` | 200 |
+| 创建任务 | `POST /api/v1/todos`，数据放 Body | 201 |
+| 标记任务 42 为完成 | `PATCH /api/v1/todos/42`，Body 为 `{"completed": true}` | 200 或 204 |
+| 删除任务 42 | `DELETE /api/v1/todos/42` | 204 |
+
+状态码不是唯一可选答案，但同一个项目必须保持一致，并在接口契约中明确。
+
+## 22. 自测问题
+
+进入下一课前，确保你能用自己的话回答：
+
+- HTTP 请求和响应各由哪三部分组成？
+- Path、Query、Header 和 Body 分别适合放什么？
+- `Content-Type` 与 `Accept` 有什么区别？
+- 安全方法与幂等方法分别是什么意思？
+- `401`、`403`、`404`、`409`、`422` 有何区别？
+- HTTPS 提供什么能力，又不能解决什么问题？
+- 为什么接口在 Apifox 成功，但浏览器仍可能失败？
+- 为什么不能只依赖前端校验？
+
+## 23. 验收标准
+
+完成本课后，你应当能够：
+
+- 完整拆解一个 HTTP 请求和响应；
+- 正确选择 GET、POST、PUT、PATCH、DELETE；
+- 按语义选择 Path、Query、Header、Cookie 与 Body；
+- 根据常见状态码快速缩小故障范围；
+- 为简单资源设计一致的 RESTful API；
+- 解释 HTTP 与 HTTPS 的差别；
+- 使用浏览器 Network 面板读取真实请求；
+- 使用 `curl.exe` 查看响应头和调试请求；
+- 判断 CORS、认证、权限、校验和服务端异常的基本边界。
+
+## 24. 下一步
+
+下一课建议学习 **JSON**。HTTP 解决“数据怎样在两端传输”，JSON 解决“传输的数据怎样组织”。掌握 JSON 后，再进入 HTML、CSS、TypeScript、Python 与 SQL 等基础层，会更容易理解这些技术如何共同组成一个全栈系统。
