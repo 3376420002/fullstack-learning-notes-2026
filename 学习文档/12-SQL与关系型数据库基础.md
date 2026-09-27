@@ -1429,3 +1429,5 @@ Relational Database
 - Alembic 迁移、自动生成与生产发布；
 - FastAPI 数据库依赖和 Todo 持久化；
 - AI 编程指令、审核清单与面试表达。
+
+[进入下一课：PostgreSQL、SQLAlchemy 与 Alembic →](./13-PostgreSQL、SQLAlchemy与Alembic.md)
