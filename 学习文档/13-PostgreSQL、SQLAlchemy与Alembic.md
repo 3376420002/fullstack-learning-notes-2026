@@ -973,3 +973,5 @@ Todo 持久化
 ## 42. 下一步
 
 下一课适合学习 **Docker 与应用容器化**：把 Vue、FastAPI 和 PostgreSQL 放进可复现的开发环境，理解镜像、容器、数据卷、网络与 Compose，并说明为什么数据库持久数据不能只留在容器可写层。
+
+[进入下一课：Docker 与 Compose 应用容器化 →](./14-Docker与Compose应用容器化.md)
